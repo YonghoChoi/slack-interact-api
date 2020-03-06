@@ -22,6 +22,8 @@ func Approve(c echo.Context) error {
 		fmt.Println(err.Error())
 		return nil
 	}
+
+	fmt.Println(u)
 	resp.Data = u
 	return nil
 }

@@ -1,1 +1,1 @@
-mongo: "localhost:27017"
+mongo: "mongo:27017"

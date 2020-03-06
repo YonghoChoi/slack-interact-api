@@ -1,0 +1,12 @@
+version: '3'
+services:
+  api:
+    image: "992189553983.dkr.ecr.ap-northeast-2.amazonaws.com/slack-interact-api:latest"
+    ports:
+      - "8000:8000"
+  mongo:
+    image: "mongo"
+    ports:
+      - "27017:27017"
+    volumes:
+      - "/opt/mongo/data:/data/db"

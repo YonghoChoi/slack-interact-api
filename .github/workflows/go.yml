@@ -1,0 +1,151 @@
+name: slack-interact-api
+on:
+  push:
+    branches:
+      - master
+jobs:
+  build:
+    name: Build
+    runs-on: ubuntu-latest
+    steps:
+    - name: Set up Go 1.13
+      uses: actions/setup-go@v1
+      with:
+        go-version: 1.13
+      id: go
+
+    - name: Check out code into the Go module directory
+      uses: actions/checkout@v1
+
+    - name: Get dependencies
+      id: build-init
+      run: |
+        mkdir -p output
+        ls -l
+        go mod init github.com/YonghoChoi/slack-interact-api
+        go mod tidy
+        GIT_HASH=$(git rev-parse --short "$GITHUB_SHA")
+        VERSION=`cat ./version.txt`
+        GIT_COMMIT_MSG=`git show -s`
+        echo $GIT_COMMIT_MSG
+        echo "::set-output name=version::$VERSION-$GIT_HASH"
+        echo "::set-output name=git-commit-msg::$GIT_COMMIT_MSG"
+
+    - name: Build Linux
+      id: build-linux
+      env:
+        GOARCH: amd64
+        GOOS: linux
+        APP_NAME: slack-interact-api
+        VERSION: ${{ steps.build-init.outputs.version }}
+      run: |
+        mkdir -p ./output/$GOOS
+        mkdir -p ./output/$GOOS/conf
+        go build -o ./output/$GOOS/$APP_NAME ./cmd/api
+        cp ./cmd/api/conf/config.yml ./output/$GOOS/conf/
+        cd ./output/$GOOS
+        tar czvf ../../$APP_NAME-$GOOS-$VERSION.tar.gz ./*
+        ls -l
+
+    - name: Build Windows
+      id: build-windows
+      env:
+        GOARCH: amd64
+        GOOS: windows
+        APP_NAME: slack-interact-api
+        VERSION: ${{ steps.build-init.outputs.version }}
+      run: |
+        mkdir -p ./output/$GOOS
+        mkdir -p ./output/$GOOS/conf
+        go build -o ./output/$GOOS/$APP_NAME.exe ./cmd/api
+        cp ./cmd/api/conf/config.yml ./output/$GOOS/conf/
+        cd ./output/$GOOS
+        zip -r ../../$APP_NAME-$GOOS-$VERSION.zip ./*
+        ls -l
+
+    - name: Build Darwin
+      id: build-darwin
+      env:
+        GOARCH: amd64
+        GOOS: darwin
+        APP_NAME: slack-interact-api
+        VERSION: ${{ steps.build-init.outputs.version }}
+      run: |
+        mkdir -p ./output/$GOOS
+        mkdir -p ./output/$GOOS/conf
+        go build -o ./output/$GOOS/$APP_NAME ./cmd/api
+        cp ./cmd/api/conf/config.yml ./output/$GOOS/conf/
+        cd ./output/$GOOS
+        tar czvf ../../$APP_NAME-$GOOS-$VERSION.tar.gz ./*
+        ls -l
+
+    - name: Configure AWS credentials
+      uses: aws-actions/configure-aws-credentials@v1
+      with:
+        aws-access-key-id: ${{ secrets.aws_access_key }}
+        aws-secret-access-key: ${{ secrets.aws_secret_key }}
+        aws-region: ap-northeast-2
+
+    - name: Login to Amazon ECR
+      id: login-ecr
+      uses: aws-actions/amazon-ecr-login@v1
+
+    - name: Build, tag, and push image to Amazon ECR
+      id: build-image
+      env:
+        ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
+        ECR_REPOSITORY: slack-interact-api
+        IMAGE_TAG: ${{ github.sha }}
+      run: |
+        cd $GITHUB_WORKSPACE
+        export VERSION=`cat version.txt`
+        docker build -t $ECR_REGISTRY/$ECR_REPOSITORY:$VERSION .
+        docker tag $ECR_REGISTRY/$ECR_REPOSITORY:$VERSION $ECR_REGISTRY/$ECR_REPOSITORY:latest
+        docker push $ECR_REGISTRY/$ECR_REPOSITORY:$VERSION
+        docker push $ECR_REGISTRY/$ECR_REPOSITORY:latest
+        echo "::set-output name=image::$ECR_REGISTRY/$ECR_REPOSITORY:$VERSION"
+    - name: Create Release
+      id: create-release
+      uses: actions/create-release@v1
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      with:
+        tag_name: v${{ steps.build-init.outputs.version }}
+        release_name: Release v${{ steps.build-init.outputs.version }}
+        body: |
+          ${{ steps.build-init.outputs.git-commit-msg }}
+        draft: false
+        prerelease: false
+
+    - name: Upload Linux Release Asset
+      id: upload-release-linux-asset
+      uses: actions/upload-release-asset@v1
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      with:
+        upload_url: ${{ steps.create-release.outputs.upload_url }}
+        asset_path: ./slack-interact-api-linux-${{ steps.build-init.outputs.version }}.tar.gz
+        asset_name: slack-interact-api-linux-${{ steps.build-init.outputs.version }}.tar.gz
+        asset_content_type: application/gzip
+
+    - name: Upload Windows Release Asset
+      id: upload-release-windows-asset
+      uses: actions/upload-release-asset@v1
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      with:
+        upload_url: ${{ steps.create-release.outputs.upload_url }}
+        asset_path: ./slack-interact-api-windows-${{ steps.build-init.outputs.version }}.zip
+        asset_name: slack-interact-api-windows-${{ steps.build-init.outputs.version }}.zip
+        asset_content_type: application/zip
+
+    - name: Upload Darwin Release Asset
+      id: upload-release-darwin-asset
+      uses: actions/upload-release-asset@v1
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      with:
+        upload_url: ${{ steps.create-release.outputs.upload_url }}
+        asset_path: ./slack-interact-api-darwin-${{ steps.build-init.outputs.version }}.tar.gz
+        asset_name: slack-interact-api-darwin-${{ steps.build-init.outputs.version }}.tar.gz
+        asset_content_type: application/gzip

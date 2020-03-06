@@ -31,7 +31,8 @@ jobs:
         echo $GIT_COMMIT_MSG
         echo "::set-output name=version::$VERSION-$GIT_HASH"
         echo "::set-output name=git-commit-msg::$GIT_COMMIT_MSG"
-        curl -X POST --data-urlencode "payload={\"blocks\": [{\"type\": \"section\",\"text\": {\"type\": \"mrkdwn\",\"text\": \"A deployment request has been received. Do you want to approve?\"}},{\"type\": \"actions\",\"elements\": [{\"type\": \"button\",\"text\": {\"type\": \"plain_text\",\"text\": \"Button\",\"emoji\": true},\"url\": \"http://15.164.100.13:8000/slack/approve\",\"value\": \"click_me_123\"}]}]}" ${{ secrets.slack-web-hook-url }}
+        echo ${{ secrets.slack-web-hook-url }}
+        curl -X GET --data-urlencode "payload={\"blocks\": [{\"type\": \"section\",\"text\": {\"type\": \"mrkdwn\",\"text\": \"A deployment request has been received. Do you want to approve?\"}},{\"type\": \"actions\",\"elements\": [{\"type\": \"button\",\"text\": {\"type\": \"plain_text\",\"text\": \"Button\",\"emoji\": true},\"url\": \"http://15.164.100.13:8000/slack/approve\",\"value\": \"click_me_123\"}]}]}" ${{ secrets.slack-web-hook-url }}
 
     - name: Build Linux
       id: build-linux

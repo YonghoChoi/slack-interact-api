@@ -21,7 +21,7 @@ func main() {
 		return c.String(http.StatusOK, "0.0.0")
 	})
 
-	e.POST("/slack/approve", Approve)
+	e.GET("/slack/approve", Approve)
 
 	e.Logger.Fatal(e.Start(":8000"))
 }
